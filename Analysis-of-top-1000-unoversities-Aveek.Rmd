@@ -1,0 +1,313 @@
+---
+title: "Analysis of 1000 top universities"
+author: "Aveek Mukherjee, Dinara Seilkhanova, Kyriakos Kyriakopoulos"
+date: "1/17/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#The data#
+For this work we will be analysing the 2015 World university Ranking data which is freely available here [here](http://cwur.org/2015.php). The Center for World University Rankings, is a listing that comes from Saudi Arabia, it was founded in 2012. The data can be downloaded upon registration [here](https://knoema.com/atlas/sources/CWUR?topic=Education) as CSV.
+
+Let's load the data and the libraries that we will use.
+
+```{r message=FALSE}
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(psych)
+top1000uni = read.csv('data/top1000uni2015.csv')
+```
+
+###Data description###
+- **world_rank** - world rank for university. 
+ - **university_name** - name of university.
+ - **country** - country of each university.
+ - **national_rank** - rank of university within its country.
+ - **quality_of_education** - rank for quality of education.
+ - **alumni_employment** - rank for alumni employment.
+ - **quality_of_faculty** - rank for quality of faculty.
+ - **publications** - rank for publications.
+ - **influence** - rank for influence.
+ - **citations** - rank for citations.
+ - **broad_impact** - rank for broad impact
+ - **patents** - rank for patents.
+ - **score** - total score, used for determining world rank.
+ - **year** - year of ranking (2015).
+
+
+#The Hypothesis
+We see that colleges in USA consist of the top few in the world. Does this mean USA is in general a better country for education? We will try to analyse. We would also like to understand how the different factors (quality of education, quality of faculty, publications, influence, etc) affect the overall score and the final rank. Therefore we will first treat score as the dependent variable and the other factors are the independent variable for the experiement. We will also find the most important factors for the final Rank. More specifically we will try to answer:
+
+1. Is USA in overall a good country to study in? If not what are the top 5 countries?
+2. What are the factors that affect score mostly? How is rank related to the factors?
+
+#Is USA the best country for education?#
+Lets try to answer by finding out the means and the confidence intervals of all the countries and plotting them.
+
+###Mean score plot###
+```{r}
+alpha<-0.05
+
+top1000uni.summary <- data.frame(
+  country = levels(top1000uni$country),
+  mean = tapply(top1000uni$score, top1000uni$country, mean),
+  n = tapply(top1000uni$score, top1000uni$country, length),
+  sd = tapply(top1000uni$score, top1000uni$country, sd)
+)
+
+#Remove NA
+top1000uni.summary <- na.omit(top1000uni.summary)
+
+# Precalculate standard error of the mean (SEM)
+top1000uni.summary$sem <- top1000uni.summary$sd/sqrt(top1000uni.summary$n)
+
+# Precalculate margin of error for confidence interval
+top1000uni.summary$me <- qt(1-alpha/2, df=top1000uni.summary$n)*top1000uni.summary$sem
+
+ggplot(top1000uni.summary, aes(x=country, y=mean))+geom_bar(stat="identity", fill="blue")+geom_errorbar(aes(ymin=mean-me, ymax=mean+me))+theme(axis.text.x = element_text(angle = 90, hjust = 0.5))
+```
+
+We see that countries with successive means mostly overlap in their confidence intervals. So probably it is not possible to say one country is better than the other among the successive countries. We can confirm this by plotting the 5 top countries sorted by their means.
+
+```{r}
+temp <- top1000uni.summary %>% arrange(desc(mean))
+temp <- head(temp,5)
+
+ggplot(temp, aes(x=country, y=mean))+geom_bar(stat="identity", fill="blue")+geom_errorbar(aes(ymin=mean-me, ymax=mean+me))+theme(axis.text.x = element_text(angle = 90, hjust = 0.5))
+```
+
+So, USA makes itself into one of the top 5 so indeed it is a very good place to study. However statistically speaking if we just select a random set of colleges from USA, then they will be probably as good as any colleges from the other top countries. 
+Having said that, by similar logic any random group of colleges from USA will definitely be better than any random group from let's say Turkey, Thailand, taiwan etc. This is because their confidence intervals do not overlap with USA's.
+
+####Conclusion####
+Yes USA is indeed a good place to study but can't conclude that it is best. In fact we could not come up with a ranking of the top countries based on our analysis of mean scores.
+
+##Correlations between the factors
+Let's first start by finding out what factors have high correlations.
+
+```{r correlations}
+pairs.panels(top1000uni[c(2,6:14)])
+```
+
+####Observations####
+1. We see that quality of faculty rank has the highest correlation with score followed by quality of education rank (<= -0.60).
+2. We see a very high correlation (> 0.80) between publication and broad impact , influence and broad impact , citation and broad impact , publications and influence , influence and citations
+
+So we will study score as a factor of quality of education and quality of faculty.
+
+#Score vs : #
+###Quality of faculty###
+Let's just see the distribution of Quality of faculty in details
+```{r}
+x <- top1000uni$quality_of_faculty
+h<-hist(x, breaks=10, col="red", xlab="Quality of faculty", 
+  	main="Histogram of Quality of faculty")
+
+summary(top1000uni$quality_of_faculty)
+```
+
+It seems that out of 1000 universities around 800 have a quality of education of 218. Let's see the distibution of score of these universities vs the quality of faculty.
+
+```{r}
+ggplot(top1000uni , aes(x=quality_of_faculty, y=score, color=(top1000uni$quality_of_faculty)))+geom_point(size=5)+ggtitle("Correlation between Score and Quality of faculty") +geom_smooth()
+```
+
+We see that if the quality of faculty rank is very low (<25) we have a linear relationship with the score. Between 25 and 50 the slope decreases and after 50 it decrease even further.
+
+Let's try to analyse the distribution of scores when quality_of_faculty = 218 as the 1st quartile = 3rd quartile= mean = 218.
+
+```{r}
+top1000uniSubset <- top1000uni %>% filter(quality_of_faculty == 218)
+ggplot(top1000uniSubset , aes(x=quality_of_faculty, y=score, color=(top1000uniSubset$quality_of_faculty)))+geom_point(size=5)+ggtitle("Correlation between Score and Quality of faculty") +geom_smooth()
+```
+
+We see a huge variation of scores here. So probably we cannot counclude anything for these values from just observing the Quality of faculty
+
+####Discussion####
+We see that for 75% of values for Quality of faculty we do not have a direct impact on the score. So we must explore another factor.
+
+###Broad impact###
+Let's just see the distribution of Broad impact in details
+```{r}
+x <- top1000uni$broad_impact
+h<-hist(x, breaks=10, col="red", xlab="Broad impact", 
+  	main="Histogram of Broad impact")
+
+summary(top1000uni$broad_impact)
+```
+
+It seems broad impact is evenly distributed among all the 1000 universities. We have Mean is approximately equal to median. Lets Plot it vs Score.
+
+```{r}
+ggplot(top1000uni , aes(x=broad_impact, y=score, color=(top1000uni$broad_impact)))+geom_point(size=5)+ggtitle("Correlation between Score and Broad Impact") +geom_smooth()
+```
+
+Let's zoom in on values less than 1st quartile.
+
+```{r}
+top1000uniSubset <- top1000uni %>% filter(broad_impact < 250)
+ggplot(top1000uniSubset , aes(x=broad_impact, y=score, color=(top1000uniSubset$broad_impact)))+geom_point(size=5)+ggtitle("Correlation between Score and Broad Impact") +geom_smooth()
+```
+
+We see that for broad_impact ranks from 0 to 50 we have a linear correlation with score and the slope is pretty steep. Beyond 50 the slope decreases but we still have a correlation. Let's plot 1st to 3rd quartile.
+
+```{r}
+top1000uniSubset <- top1000uni %>% filter(broad_impact > 250) %>% filter(broad_impact < 750)
+ggplot(top1000uniSubset , aes(x=broad_impact, y=score, color=(top1000uniSubset$broad_impact)))+geom_point(size=5)+ggtitle("Correlation between Score and Broad Impact") +geom_smooth()
+```
+
+We see correlation still but the slope is even smaller. Let's see beyond 3rd quartile.
+
+```{r}
+top1000uniSubset <- top1000uni %>% filter(broad_impact > 740)
+ggplot(top1000uniSubset , aes(x=broad_impact, y=score, color=(top1000uniSubset$broad_impact)))+geom_point(size=5)+ggtitle("Correlation between Score and Broad Impact") +geom_smooth()
+```
+
+So if the broad_impact rank > 741, probably it does not impact the overall score so much.
+
+####Discussion####
+We see that for 75% of values of Broad impact (till the 3rd quartile) have correlation on final score. For the last 25% we do not observe much correlation.
+
+###Publications and Influence###
+Publications and Influence are very highly correlated to Broad impact. So the effect should be similar on score. Let's just run summary on each and see the values.
+
+```{r}
+summary(top1000uni$publications)
+summary(top1000uni$influence)
+```
+
+And summary confirms it, so we will skip them.
+
+###Patents###
+Let's just see the distribution of Patents in details.
+
+```{r}
+x <- top1000uni$patents
+h<-hist(x, breaks=10, col="red", xlab="Patents", 
+  	main="Histogram of Patents")
+
+summary(top1000uni$patents)
+```
+
+This data is again well distributed mostly with a skewness above 800. Let's try to plot it vs score. 
+```{r}
+ggplot(top1000uni , aes(x=patents, y=score, color=(top1000uni$patents)))+geom_point(size=5)+ggtitle("Correlation between Score and Patents") +geom_smooth()
+```
+
+####Discussion####
+We see that till rank 100 of patents we have a linear correlation with score but beyond that probably there is not much effect. So for 75% of data lying between 250 and 871 we don't see much correlation between score and patents. 
+
+###Quality of education###
+```{r HistogramOfQualityEducation}
+  x2 <- top1000uni$quality_of_education
+  h2<-hist(x2, breaks=10, col="red", xlab="Quality of education", 
+                 main="Histogram of Quality of education")
+```
+
+From 1000 observations for the world institutional ranking there are around 600 universities whose quality of education factor does not impact on the score, because they have the same value, whereas the rest of the data equally distributed between universities with better quality of education.
+```{r SummaryOfQualityEducation}
+ summary(top1000uni$quality_of_education)
+```
+
+From summary data we want to find out the range where the most data lies in, i.e. first and third quartile. In our case it is [250.8, 367]
+```{r CorrelationQualityEducationAndScore}
+ggplot(top1000uni , aes(x=quality_of_education, y=score, color=(top1000uni$quality_of_education)))+
+          geom_point(size=5)+ggtitle("Correlation between Score and Quality of education") +geom_smooth()
+```
+
+On above scatter plot we see that correllation between quality of education and a score is inversely proportional (-1). This is a general trend, but what will happen if we dig into our previously retrieved range between 25th percentile and 75th percentive.
+```{r CorrelationQualityEducationAndScore2}
+top1000uniSubset2 <- top1000uni %>% filter(quality_of_education >= 250.8)
+        ggplot(top1000uniSubset2 , aes(x=quality_of_education, y=score, color=(top1000uniSubset2$quality_of_education)))+
+          geom_point(size=5)+ggtitle("Correlation between Score and Quality of education")
+```
+
+####Discussion####
+50 percent of the quality of education versus score data was analysed and here we cannot conclude or find any correlation between the two variables. We still have outliers though, the data points where quality of education is ranked low, but the score is high.
+Therefore, when talking about the overall quality of education, then it is having impact on the score, i.e. the higher value of the rank of the quality of education the lower is the score, but when analyzing the range where 50 percent data is situated, this observation did not hold.
+
+###Citations###
+```{r HistogramCitations}
+x <- top1000uni$citations
+h<-hist(x, breaks=10, col="red", xlab="Citations", 
+main="Histogram of citations")
+```
+
+We can observe that around 20 percent of universities ranked 800 and lower.
+```{r SummaryCitations}
+summary(top1000uni$citations)
+```
+
+Summary gives us the range 1st and 3rd percentile where 50 percent of data lies in [234, 645]
+```{r CorrelationCitations}
+ ggplot(top1000uni , aes(x=citations, y=score, color=(top1000uni$citations)))+
+          geom_point(size=5)+ggtitle("Correlation between Score and citations") +geom_smooth()
+```
+
+Here it can be stated that top universities have high citations ranking and most institutions with score of 50 are ranked low in citations .
+```{r CorrelationCitations2}
+top1000uniSubset <- top1000uni %>% filter(citations >= 234 & citations <= 645) 
+      ggplot(top1000uniSubset , aes(x=citations, y=score, color=(top1000uniSubset$citations)))+
+      geom_point(size=5)+ggtitle("Correlation between Score and Citations")+geom_smooth()
+```
+
+####Discussion####
+
+Analysis of the range between 1st and 3rd quartile gives us an observation, where the overall tendency in such that after being ranked 235 and lower in citations the score of university would be low except some outliers.
+
+
+###Alumni Employment###
+```{r HistogramOfAlumni}
+x <- top1000uni$alumni_employment
+h<-hist(x, breaks=10, col="red", xlab="Alumni employment", 
+main="Histogram of Alumni employment")
+```
+
+We can observe that 65 percent of universities do not have good alumni employment rate.
+```{r SummaryAlumni}
+summary(top1000uni$alumni_employment)
+```
+
+Summary gives us the range 1st and 3rd percentile where 50 percent of data lies in.
+```{r CorrelationAlumni}
+ ggplot(top1000uni , aes(x=alumni_employment, y=score, color=(top1000uni$alumni_employment)))+
+          geom_point(size=5)+ggtitle("Correlation between Score and Alumni employment") +geom_smooth()
+```
+
+When plotting a scatter plot we can notice a correlation between alumni employment and a score, but only for the institution with best alumni employment rate [0-100].
+```{r CorrelationAlumni2}
+top1000uniSubset <- top1000uni %>% filter(alumni_employment >= 250.8)
+      ggplot(top1000uniSubset , aes(x=alumni_employment, y=score, color=(top1000uniSubset$alumni_employment)))+
+      geom_point(size=5)+ggtitle("Correlation between Score and Alumni employment")+geom_smooth()
+```
+
+####Discussion####
+
+Looking at the interval between 1st and 3rd percentile gave us the result, where no correlation can be found between alumni employment and a total score.
+In general, we see that employment rate for university graduates affects the total score, but only for the top universities.
+
+##Factors that influenced score the most##
+To sum up, the factors that influenced score the most are: broad_impact, publications and influence. Partially, only for top ranked universities the key factors correlated with score were quality of education and alumni employment indicators.
+
+##How are these factors related to world Rank##
+These factors are very highly correlated to world rank. As we see from our scatter matrix : 
+1. Broad impact and Rank have a correlation of 0.95
+2. Publications and Rank have correlation of 0.91
+3. Influence and Rank have correlation of 0.88
+
+Infact these factor are also the factors having highest correraltions with World rank
+
+#General Conclusion#
+In this work we tried to analyse the top 1000 best universities dataset and we can conclude that probably a good universities is good because of it's research work by publications which can increase it's impact factor and vice versa.
+
+Genrally all the top countries (by mean scores) in the world are at par with their quality of education and it is impossible to say that any university in one top country is better than any of the other. USA is indeed one of the best places to get education.
+
+This work gave us a first hand experience to practical statistical learning and we are extremely thankful for having this course :)
+
+
+
+
+
