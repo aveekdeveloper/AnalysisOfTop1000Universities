@@ -1,0 +1,7 @@
+name: Publish Document
+account: rpubs
+server: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/242797/c225ccec715c4f47a9d0dcfa95a38634
+bundleId: https://api.rpubs.com/api/v1/document/242797/c225ccec715c4f47a9d0dcfa95a38634
+url: http://rpubs.com/aveekmukh90/242797
+when: 1486033328.06698

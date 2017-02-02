@@ -80,13 +80,25 @@ ggplot(temp, aes(x=country, y=mean))+geom_bar(stat="identity", fill="blue")+geom
 ```
 
 So, USA makes itself into one of the top 5 so indeed it is a very good place to study. However statistically speaking if we just select a random set of colleges from USA, then they will be probably as good as any colleges from the other top countries. 
-Having said that, by similar logic any random group of colleges from USA will definitely be better than any random group from let's say Turkey, Thailand, taiwan etc. This is because their confidence intervals do not overlap with USA's.
+Having said that, by similar logic any random group of colleges from USA will definitely be better than any random group from let's say Turkey, Thailand, Taiwan etc. with atleast 95% confidence. This is because their confidence intervals do not overlap with USA's.
 
 ####Conclusion####
 Yes USA is indeed a good place to study but can't conclude that it is best. In fact we could not come up with a ranking of the top countries based on our analysis of mean scores.
 
+##Principal Component Analysis of the dataset##
+Let's first do a PCA of the dataset. 
+```{r}
+attach(top1000uni)
+x <- cbind(quality_of_education,alumni_employment,quality_of_faculty,publications,influence,citations,broad_impact,patents,score)
+pca1 <- princomp(x, scores=TRUE, cor=TRUE)
+biplot(pca1)
+```
+
+We see that in the biplot (alumni employment, quality of education, quality of faculty) are close together. So, this means if quality of faculty is good it is highly likely that quality of education is good and so is alumni employment. Also (patents,pulications and broad impact) are highly correraled. We can imply patents and publications lead to the broad impact of an institution.
+
+
 ##Correlations between the factors
-Let's first start by finding out what factors have high correlations.
+Let's find out what factors have high correlations.
 
 ```{r correlations}
 pairs.panels(top1000uni[c(2,6:14)])
